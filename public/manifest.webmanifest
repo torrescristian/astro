@@ -1,0 +1,19 @@
+{
+  "name": "astra. — Tu universo, en perspectiva",
+  "short_name": "astra.",
+  "description": "Un espacio personal para explorar tu carta natal, los signos y los ciclos del cielo.",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f6f2",
+  "theme_color": "#f7f6f2",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

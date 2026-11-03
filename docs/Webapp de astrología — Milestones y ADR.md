@@ -155,11 +155,11 @@ src/
 
 ### ADR-003 — Cálculo astrológico mediante una librería especializada
 
-**Estado:** Propuesto; se acepta al cierre del spike de M0.
+**Estado:** Aceptado para el MVP; validación golden pendiente.
 
 **Contexto:** La carta natal requiere posiciones planetarias precisas a partir de fecha, hora y ubicación, con licencia compatible con un proyecto sin servicios pagos.
 
-**Decisión:** Utilizar una librería de efemérides compatible con JavaScript o WebAssembly, encapsulada detrás de una interfaz propia y ejecutada en un Web Worker.
+**Decisión:** Utilizar `astronomy-engine` (MIT) en JavaScript, encapsulado detrás de la lógica de dominio y ejecutado en un Web Worker. La librería calcula posiciones geocéntricas de Sol, Luna y planetas; se rotan a la eclíptica verdadera de la fecha. La primera versión usa zodíaco tropical y casas de signos enteros.
 
 ```
 interface AstrologyEngine {
@@ -170,19 +170,20 @@ interface AstrologyEngine {
 **Alternativas consideradas:**
 
 - Swiss Ephemeris: la más completa, pero con licencia AGPL o comercial; exige abrir el código de la app o comprar licencia.
-- `astronomy-engine` (MIT): calcula Sol, Luna y planetas, pero no incluye sistemas de casas, que habría que implementar.
-- Otras librerías permisivas, a evaluar en el spike.
+- `astronomy-engine` (MIT): calcula posiciones planetarias con precisión declarada de alrededor de un minuto de arco, pero no incluye sistemas de casas; el Ascendente, Medio Cielo y las casas se calculan en el dominio de la app.
+- Una API astrológica alojada: simplifica el cálculo, pero envía datos de nacimiento a un tercero y no satisface el modo offline-first.
 
-**Criterios del spike:** licencia, precisión frente a cartas de referencia (por ejemplo astro.com), soporte de casas, peso del bundle y rendimiento en móviles.
+**Criterios del spike:** licencia, capacidad de cálculo local, peso del bundle y rendimiento móvil. La comparación golden contra cartas de referencia sigue pendiente en ADR-011.
 
 **Consecuencias:**
 
 - Los cálculos se prueban independientemente de React.
 - La librería puede reemplazarse sin modificar la UI.
-- La zona horaria y las coordenadas se normalizan antes del cálculo.
+- La hora local se convierte a UTC con la zona IANA histórica seleccionada antes del cálculo.
+- Si se desconoce la hora, se usa el mediodía local y se omiten Ascendente y casas; la posición lunar puede variar durante ese día.
 - La interpretación es una capa independiente del cálculo astronómico.
 
-**Riesgos:** Implementar casas propias exige pruebas golden exhaustivas; una licencia inadecuada obligaría a rediseñar.
+**Riesgos:** El cálculo propio de ángulos y casas requiere pruebas golden exhaustivas; una diferencia con las referencias puede requerir ajustes.
 
 ### ADR-004 — Persistencia local con IndexedDB
 
@@ -274,27 +275,27 @@ interface ZodiacSign {
 
 ### ADR-008 — Geocodificación y zonas horarias
 
-**Estado:** Propuesto.
+**Estado:** Aceptado.
 
 **Contexto:** El lugar de nacimiento debe convertirse en coordenadas y zona horaria sin depender de servicios externos, y la hora local de nacimiento debe pasar a tiempo universal respetando la historia de los husos horarios.
 
-**Decisión:** Empaquetar una base de ciudades (GeoNames `cities15000`) con coordenadas y zona IANA, cargada de forma diferida y buscada localmente. Usar una librería de zonas horarias basada en la base IANA para la conversión histórica.
+**Decisión:** Incluir una versión reducida del conjunto GeoNames `cities5000` con ciudades pobladas, coordenadas y zona IANA, y buscarla localmente. La base requiere atribución CC BY 4.0. Convertir fecha y hora con `@js-temporal/polyfill`, detectar horas ambiguas o inexistentes y pedir una elección cuando corresponda.
 
 **Alternativas consideradas:** Nominatim (su política de uso no permite autocompletado intensivo y exige conexión), APIs de geocodificación pagas (contradicen el alcance sin costos).
 
 **Consecuencias:**
 
-- La búsqueda de ciudades funciona offline.
+- La búsqueda de más de 69.000 localidades funciona offline; el índice se precarga junto con el shell PWA.
 - Las horas inexistentes o ambiguas por cambios de horario de verano se detectan y se informan al usuario, que elige la interpretación.
 - Lugares fuera de la base permiten ingresar coordenadas y zona manualmente.
 
-**Riesgos:** Peso de la base de ciudades; se mitiga con carga diferida y caché.
+**Riesgos:** La base se distribuye “tal cual” y puede omitir localidades pequeñas; el ingreso manual cubre esos casos. Su tamaño añade unos 4,4 MB sin comprimir al precache.
 
 ### ADR-009 — Parámetros astrológicos
 
-**Estado:** Propuesto.
+**Estado:** Aceptado para el MVP.
 
-**Decisión:** Zodíaco tropical por defecto, un sistema de casas por defecto (a definir en el spike del ADR-003, entre Placidus y signos enteros), y orbes de aspectos configurables con valores iniciales documentados.
+**Decisión:** Usar zodíaco tropical y casas de signos enteros. Orbes iniciales: conjunción y oposición 6° (8° para aspectos con Sol o Luna), cuadratura y trígono 5° (7° con luminarias), sextil 4° (6° con luminarias).
 
 **Alternativas consideradas:** Zodíaco sidéreo y otros sistemas de casas, que se agregan como preferencias en versiones posteriores.
 
@@ -303,7 +304,7 @@ interface ZodiacSign {
 - Los parámetros se muestran en la carta para que el resultado sea reproducible.
 - Las pruebas golden se ejecutan con estos mismos parámetros.
 
-**Riesgos:** Los sistemas de casas difieren entre fuentes; la documentación debe explicar la elección.
+**Riesgos:** Las casas de signos enteros difieren de Placidus y de otras referencias; el sistema y los orbes se muestran junto a la carta.
 
 ### ADR-010 — Renderizado de la carta en SVG
 
@@ -376,6 +377,5 @@ La carta natal es la funcionalidad central, por lo que el plan reduce primero su
 
 ## Decisiones abiertas
 
-- Librería de efemérides y sistema de casas por defecto (ADR-003 y ADR-009), a cerrar con el spike de M0.
 - Proveedor de hosting entre Cloudflare Pages, Netlify y GitHub Pages (ADR-012).
-- Tolerancia en grados para las pruebas golden (ADR-011).
+- Cartas de referencia y tolerancia en grados para las pruebas golden (ADR-011).
